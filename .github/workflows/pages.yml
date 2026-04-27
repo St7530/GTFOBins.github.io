@@ -1,36 +1,46 @@
-name: Pages
+name: Build and Release
+
 on:
   push:
     branches:
       - master
+
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write  # 创建 Release 和上传附件所需的权限
+
 jobs:
   Build:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.3.4
           bundler-cache: true
-      - name: Setup Pages
-        id: pages
-        uses: actions/configure-pages@v5
+
       - name: Build Jekyll
         run: bundle exec jekyll build
         env:
           JEKYLL_ENV: production
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-  Deploy:
-    environment:
-      name: github-pages
-    runs-on: ubuntu-22.04
-    needs: Build
-    steps:
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
+
+      - name: Package site
+        run: |
+          cd _site
+          zip -r ../site.zip .
+          cd ..
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_id }}
+          name: "Build ${{ github.run_number }}"
+          body: |
+            Automated release from master branch commit `${{ github.sha }}`
+          files: site.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
